@@ -1,6 +1,7 @@
+import 'package:authenticate/views/bloc/authentication_bloc.dart';
 import 'package:authenticate/views/login/login_page.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 
 class SignUpPage extends StatefulWidget {
@@ -17,39 +18,12 @@ class _SignUpPageState extends State<SignUpPage> {
   bool loading = false;
   bool obscure = true;
 
-  clearFields() {
-    nameController.text = '';
-    emailController.text = '';
-    passwordController.text = '';
-    setState(() {});
-  }
-
-  Future<User?> signUp(String email, String password) async {
-    setState(() => loading = true);
-    try {
-      UserCredential userCredential =
-          await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      if (userCredential.user != null) {
-        showSnackBar(title: 'Account successfully created');
-        pop();
-      }
-      setState(() => loading = false);
-      return userCredential.user;
-    } on FirebaseAuthException catch (e) {
-      setState(() => loading = false);
-      debugPrint('code ${e.code}');
-      if (e.code == 'invalid-email') {
-        showSnackBar(title: '${e.message}');
-      } else if (e.code == 'weak-password') {
-        showSnackBar(title: '${e.message}');
-      } else {
-        showSnackBar(title: 'It was not possible to complete your request');
-      }
-      return null;
-    }
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
   }
 
   pop() {
@@ -213,34 +187,50 @@ class _SignUpPageState extends State<SignUpPage> {
                     ),
                   ),
                   const SizedBox(height: 30),
-                  ElevatedButton(
-                    onPressed: () async {
-                      if (emailController.text.isNotEmpty &&
-                          passwordController.text.isNotEmpty &&
-                          nameController.text.isNotEmpty) {
-                        await signUp(
-                            emailController.text, passwordController.text);
-                      } else {
-                        showSnackBar(title: 'Please fill all form fields');
+                  BlocConsumer<AuthenticationBloc, AuthenticationState>(
+                    listener: (context, state) {
+                      if (state is Authenticated) {
+                        showSnackBar(title: 'Account successfully created');
+                        pop();
                       }
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1D61E7),
-                      shadowColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      minimumSize: const Size.fromHeight(56),
-                    ),
-                    child: !loading
-                        ? const Text(
-                            'Register',
-                            style: TextStyle(fontSize: 16, color: Colors.white),
-                          )
-                        : const CircularProgressIndicator(
-                            color: Colors.white,
+                    builder: (context, state) {
+                      return ElevatedButton(
+                        onPressed: () async {
+                          if (emailController.text.isNotEmpty &&
+                              passwordController.text.isNotEmpty &&
+                              nameController.text.isNotEmpty) {
+                            BlocProvider.of<AuthenticationBloc>(context).add(
+                              SignUpEvent(
+                                email: emailController.text,
+                                password: passwordController.text,
+                                fullName: nameController.text,
+                              ),
+                            );
+                          } else {
+                            showSnackBar(title: 'Please fill all form fields');
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1D61E7),
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
+                          minimumSize: const Size.fromHeight(56),
+                        ),
+                        child: state is AuthenticationLoading
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                            : const Text(
+                                'Register',
+                                style: TextStyle(
+                                    fontSize: 16, color: Colors.white),
+                              ),
+                      );
+                    },
                   ),
                 ],
               ),

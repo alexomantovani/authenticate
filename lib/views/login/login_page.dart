@@ -1,8 +1,10 @@
+import 'package:authenticate/views/bloc/authentication_bloc.dart';
 import 'package:authenticate/views/home/home_page.dart';
 import 'package:authenticate/views/password/reset_password_page.dart';
 import 'package:authenticate/views/signup/signup_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:local_auth/local_auth.dart';
@@ -31,10 +33,11 @@ class _LoginPageState extends State<LoginPage> {
     getUser();
   }
 
-  clearFields() {
-    emailController.text = '';
-    passwordController.text = '';
-    setState(() {});
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
   }
 
   pop() {
@@ -165,11 +168,9 @@ class _LoginPageState extends State<LoginPage> {
               await saveUser().whenComplete(() => pop()),
         ).whenComplete(() {
           goToHome();
-          clearFields();
         });
       } else {
         goToHome();
-        clearFields();
       }
     }
   }
@@ -254,7 +255,6 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   TextButton(
                     onPressed: () {
-                      clearFields();
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => const SignUpPage(),
@@ -343,35 +343,47 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () async {
-                  await getUser();
-                  if (emailController.text.isNotEmpty &&
-                      passwordController.text.isNotEmpty) {
-                    await signInWithEmail(
-                        emailController.text, passwordController.text);
-                  } else {
-                    showSnackBar(
-                        title: 'Please enter a valid email and password');
+              BlocConsumer<AuthenticationBloc, AuthenticationState>(
+                listener: (context, state) {
+                  if (state is SignedIn) {
+                    validateUserAfterSignIn(state.userCredential);
                   }
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1D61E7),
-                  shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  minimumSize: const Size.fromHeight(56),
-                ),
-                child: !loading
-                    ? const Text(
-                        'Log In',
-                        style: TextStyle(fontSize: 16, color: Colors.white),
-                      )
-                    : const CircularProgressIndicator(
-                        color: Colors.white,
+                builder: (context, state) {
+                  return ElevatedButton(
+                    onPressed: () {
+                      getUser();
+                      if (emailController.text.isNotEmpty &&
+                          passwordController.text.isNotEmpty) {
+                        BlocProvider.of<AuthenticationBloc>(context).add(
+                          SignInEvent(
+                              email: emailController.text,
+                              password: passwordController.text),
+                        );
+                      } else {
+                        showSnackBar(
+                            title: 'Please enter a valid email and password');
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1D61E7),
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      minimumSize: const Size.fromHeight(56),
+                    ),
+                    child: state is AuthenticationLoading
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                          )
+                        : const Text(
+                            'Log In',
+                            style: TextStyle(fontSize: 16, color: Colors.white),
+                          ),
+                  );
+                },
               ),
               const SizedBox(height: 24),
               persistedUser != null && persistedUser!['email'] != null
@@ -379,8 +391,12 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: () async {
                         bool isLocalyAuthenticated = await _authenticate();
                         if (isLocalyAuthenticated) {
-                          await signInWithEmail(persistedUser!['email']!,
-                              persistedUser!['password']!);
+                          BlocProvider.of<AuthenticationBloc>(context).add(
+                            SignInEvent(
+                              email: persistedUser!['email']!,
+                              password: persistedUser!['password']!,
+                            ),
+                          );
                         }
                       },
                       icon: const Icon(

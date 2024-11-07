@@ -1,6 +1,8 @@
+import 'package:authenticate/views/bloc/authentication_bloc.dart';
 import 'package:authenticate/views/login/login_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_svg/svg.dart';
 
@@ -177,36 +179,45 @@ class _HomePageState extends State<HomePage> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 30),
-              ElevatedButton(
-                onPressed: () {
-                  openDialog(
-                    title: 'Delete Account?',
-                    cancelButtonLabel: 'Cancel',
-                    confirmButtonLabel: 'Delete',
-                    iconData: Icons.delete_outline_rounded,
-                    confirmButtonHandler: () async {
-                      pop();
-                      await deleteAccount().then((value) => navigateToLogin());
+              BlocConsumer<AuthenticationBloc, AuthenticationState>(
+                listener: (context, state) {},
+                builder: (context, state) {
+                  return ElevatedButton(
+                    onPressed: () {
+                      openDialog(
+                        title: 'Delete Account?',
+                        cancelButtonLabel: 'Cancel',
+                        confirmButtonLabel: 'Delete',
+                        iconData: Icons.delete_outline_rounded,
+                        confirmButtonHandler: () async {
+                          pop();
+                          BlocProvider.of<AuthenticationBloc>(context).add(
+                              DeleteAccountEvent(
+                                  FirebaseAuth.instance.currentUser));
+                          await storage.deleteAll();
+                          navigateToLogin();
+                        },
+                      );
                     },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFDB272D),
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      minimumSize: const Size.fromHeight(56),
+                    ),
+                    child: state is AuthenticationLoading
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                          )
+                        : const Text(
+                            'Delete Account',
+                            style: TextStyle(fontSize: 16, color: Colors.white),
+                          ),
                   );
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFDB272D),
-                  shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  minimumSize: const Size.fromHeight(56),
-                ),
-                child: !loading
-                    ? const Text(
-                        'Delete Account',
-                        style: TextStyle(fontSize: 16, color: Colors.white),
-                      )
-                    : const CircularProgressIndicator(
-                        color: Colors.white,
-                      ),
               ),
             ],
           ),

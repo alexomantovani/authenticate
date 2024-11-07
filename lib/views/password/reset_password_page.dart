@@ -1,5 +1,6 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:authenticate/views/bloc/authentication_bloc.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 
 class ResetPasswordPage extends StatelessWidget {
@@ -24,19 +25,6 @@ class ResetPasswordPage extends StatelessWidget {
           duration: const Duration(milliseconds: 1500),
         ),
       );
-    }
-
-    Future<void> resetPassword(String email) async {
-      try {
-        await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-        showSnackBar(title: 'Password reset request sent to $email');
-      } on FirebaseAuthException catch (e) {
-        if (e.code == 'invalid-email') {
-          showSnackBar(title: '${e.message}');
-        } else {
-          showSnackBar(title: 'It was not possible to complete your request');
-        }
-      }
     }
 
     return Scaffold(
@@ -104,27 +92,39 @@ class ResetPasswordPage extends StatelessWidget {
                     style: TextStyle(color: Colors.white),
                   ),
                   const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () async {
-                      if (emailController.text.isEmpty) {
+                  BlocListener<AuthenticationBloc, AuthenticationState>(
+                    listener: (context, state) {
+                      if (state is ForgotPasswordSent) {
                         showSnackBar(
-                            title: 'Please fill the required email field');
-                      } else {
-                        await resetPassword(emailController.text);
+                            title:
+                                'Password reset request sent to ${emailController.text}');
+                      } else if (state is AuthenticationError) {
+                        showSnackBar(title: state.message);
                       }
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1D61E7),
-                      shadowColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        if (emailController.text.isEmpty) {
+                          showSnackBar(
+                              title: 'Please fill the required email field');
+                        } else {
+                          BlocProvider.of<AuthenticationBloc>(context)
+                              .add(ResetPasswordEvent(emailController.text));
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1D61E7),
+                        shadowColor: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        minimumSize: const Size.fromHeight(56),
                       ),
-                      minimumSize: const Size.fromHeight(56),
-                    ),
-                    child: const Text(
-                      'Reset',
-                      style: TextStyle(fontSize: 16, color: Colors.white),
+                      child: const Text(
+                        'Reset',
+                        style: TextStyle(fontSize: 16, color: Colors.white),
+                      ),
                     ),
                   ),
                 ],
